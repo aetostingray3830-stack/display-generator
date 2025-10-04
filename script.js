@@ -875,47 +875,59 @@ if (patRandom)
   });
 
 /* ======== エクスポート補助：実描画範囲を取得（トリミング対策） ======== */
-function getContentRect(bleed = 16) {
-  let rect = null;
+// 置き換え：getContentRect
+// ステージ内の全要素の実描画範囲を取得（影・回転・スケールも含む）
+// ステージ内の全要素の実描画範囲を取得（影・回転・スケールも含む）
+function getContentRect(bleed = 32) {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+
   stage.getChildren().forEach((layer) => {
-    const r = layer.getClientRect({ skipShadow: false, skipStroke: false });
-    if (
-      !r ||
-      !isFinite(r.x) ||
-      !isFinite(r.y) ||
-      !isFinite(r.width) ||
-      !isFinite(r.height)
-    )
-      return;
-    if (!rect) rect = { ...r };
-    else {
-      const minX = Math.min(rect.x, r.x);
-      const minY = Math.min(rect.y, r.y);
-      const maxX = Math.max(rect.x + rect.width, r.x + r.width);
-      const maxY = Math.max(rect.y + rect.height, r.y + r.height);
-      rect = {
-        x: minX,
-        y: minY,
-        width: maxX - minX,
-        height: maxY - maxY + (maxY - minY),
-      }; // Fix later? (typo)
-    }
+    layer.getChildren().forEach((node) => {
+      // 非表示ノード・Transformerは無視
+      if (!node.visible() || node.className === "Transformer") return;
+
+      const r = node.getClientRect({ skipShadow: false, skipStroke: false });
+      if (
+        !r ||
+        !isFinite(r.x) ||
+        !isFinite(r.y) ||
+        !isFinite(r.width) ||
+        !isFinite(r.height)
+      )
+        return;
+      if (r.width <= 0 || r.height <= 0) return;
+
+      minX = Math.min(minX, r.x);
+      minY = Math.min(minY, r.y);
+      maxX = Math.max(maxX, r.x + r.width);
+      maxY = Math.max(maxY, r.y + r.height);
+    });
   });
-  // 修正：上の width/height 計算タイポ防止
-  if (rect) {
-    const minX = rect.x,
-      minY = rect.y,
-      maxX = rect.x + rect.width,
-      maxY = rect.y + rect.height;
-    rect = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-  } else {
-    rect = { x: 0, y: 0, width: stage.width(), height: stage.height() };
+
+  // コンテンツが無い場合
+  if (!isFinite(minX)) {
+    minX = 0;
+    minY = 0;
+    maxX = stage.width();
+    maxY = stage.height();
   }
-  rect.x -= bleed;
-  rect.y -= bleed;
-  rect.width += bleed * 2;
-  rect.height += bleed * 2;
-  return rect;
+
+  // bleedぶんマージンを足す
+  minX -= bleed;
+  minY -= bleed;
+  maxX += bleed;
+  maxY += bleed;
+
+  // 小数端切れ対策で整数化
+  const x = Math.floor(minX);
+  const y = Math.floor(minY);
+  const width = Math.ceil(maxX - x);
+  const height = Math.ceil(maxY - y);
+
+  return { x, y, width, height };
 }
 
 /* ===== 日付入りファイル名 ===== */
@@ -945,52 +957,40 @@ function exportPNG() {
       "display";
     const filename = makeDatedFilename(prefix);
 
-    const bleed = 16; // ← これを追加
+    // ✅ 影などのはみ出し余白
+    const bleed = 16;
+    let rect = getContentRect(bleed);
 
-    // 影・ストローク込みの実描画範囲（全レイヤー）を取得
-    const rect = getContentRect(bleed);
-    {
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = -Infinity,
-        maxY = -Infinity;
-
-      stage.getChildren().forEach((layer) => {
-        const r = layer.getClientRect({ skipShadow: false, skipStroke: false });
-        if (
-          !r ||
-          !isFinite(r.x) ||
-          !isFinite(r.y) ||
-          !isFinite(r.width) ||
-          !isFinite(r.height)
-        )
-          return;
-        if (r.width <= 0 || r.height <= 0) return;
-
-        minX = Math.min(minX, r.x);
-        minY = Math.min(minY, r.y);
-        maxX = Math.max(maxX, r.x + r.width);
-        maxY = Math.max(maxY, r.y + r.height);
-      });
-
-      if (!isFinite(minX)) {
-        // 何も無い場合はステージ全体
-        minX = 0;
-        minY = 0;
-        maxX = stage.width();
-        maxY = stage.height();
-      }
-
-      // 安全マージン（影などのはみ出し対策）
-      minX -= bleed;
-      minY -= bleed;
-      maxX += bleed;
-      maxY += bleed;
-
-      return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    // rectの安全確認（width/heightが0ならステージ全体にフォールバック）
+    if (
+      !rect ||
+      rect.width <= 0 ||
+      rect.height <= 0 ||
+      !isFinite(rect.width) ||
+      !isFinite(rect.height)
+    ) {
+      console.warn("rect fallback: invalid size", rect);
+      rect = { x: 0, y: 0, width: stage.width(), height: stage.height() };
     }
 
-    // 余白・背景合成
+    // ✅ ステージからDataURL取得（try-catch必須）
+    let dataURL;
+    try {
+      dataURL = stage.toDataURL({
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        pixelRatio: 1,
+        mimeType: "image/png",
+      });
+    } catch (e) {
+      console.error("stage.toDataURL failed:", e);
+      alert("画像書き出しに失敗しました（外部画像やCORSの可能性）");
+      return;
+    }
+
+    // ✅ 合成キャンバス作成
     const outCanvas = document.createElement("canvas");
     outCanvas.width = Math.ceil(rect.width) + margin * 2;
     outCanvas.height = Math.ceil(rect.height) + margin * 2;
@@ -1001,52 +1001,50 @@ function exportPNG() {
       ctx.fillRect(0, 0, outCanvas.width, outCanvas.height);
     }
 
+    // ✅ Imageとして描画してBlob保存
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
+      console.log("img loaded OK");
       ctx.drawImage(img, margin, margin);
 
       if (outCanvas.toBlob) {
         outCanvas.toBlob((blob) => {
           if (!blob) {
-            console.warn("Blob生成失敗→新タブフォールバック");
+            console.warn("Blob生成失敗、DataURLフォールバック");
             fallbackDataURL();
             return;
           }
+          console.log("Blob生成成功", blob);
+
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
           a.download = filename;
           document.body.appendChild(a);
-          const clickEvent = new MouseEvent("click", {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-          });
-          a.dispatchEvent(clickEvent);
-          setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }, 500);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          console.log("✅ ダウンロード完了:", filename);
         }, "image/png");
       } else {
         fallbackDataURL();
       }
     };
     img.onerror = (e) => {
-      console.error("画像の合成に失敗:", e);
+      console.error("画像読み込み失敗:", e);
       alert("PNG合成に失敗しました。");
     };
     img.src = dataURL;
 
     function fallbackDataURL() {
       try {
+        console.log("フォールバック開始");
         const url = outCanvas.toDataURL("image/png");
-        const win = window.open(url, "_blank");
-        if (!win)
-          alert(
-            "ポップアップがブロックされました。許可してもう一度お試しください。"
-          );
+        const newTab = window.open(url, "_blank");
+        if (!newTab) alert("ポップアップがブロックされました。");
+        else console.log("✅ 新タブで画像表示");
       } catch (err) {
         console.error("DataURLフォールバック失敗:", err);
         alert("PNG保存に失敗しました。");
