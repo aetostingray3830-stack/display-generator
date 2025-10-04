@@ -205,6 +205,7 @@ function resizeStage() {
 }
 function setBackgroundImage(url) {
   const img = new Image();
+  img.crossOrigin = "anonymous"; // ← 重要！
   img.onload = () => {
     if (!bgImageNode) {
       bgImageNode = new Konva.Image({
@@ -214,12 +215,21 @@ function setBackgroundImage(url) {
         listening: false,
       });
       bgLayer.add(bgImageNode);
-    } else bgImageNode.image(img);
+    } else {
+      bgImageNode.image(img);
+    }
     fitBackground();
     bgLayer.draw();
   };
+  img.onerror = (e) => {
+    console.error("背景画像の読み込みに失敗", e);
+    alert(
+      "背景画像を読み込めませんでした。CORSを許可した画像URLか、ファイルから読み込んでください。"
+    );
+  };
   img.src = url;
 }
+
 function fitBackground() {
   if (!bgImageNode || !bgImageNode.image()) return;
   const bgFit = document.getElementById("bgFit").value;
@@ -935,8 +945,10 @@ function exportPNG() {
       "display";
     const filename = makeDatedFilename(prefix);
 
+    const bleed = 16; // ← これを追加
+
     // 影・ストローク込みの実描画範囲（全レイヤー）を取得
-    const rect = getContentRect(16);
+    const rect = getContentRect(bleed);
     {
       let minX = Infinity,
         minY = Infinity,
