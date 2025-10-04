@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ディスプレイジェネレーター</title>
+
+    <!-- Google Fonts（フォント選択で使用） -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=M+PLUS+1p:wght@400;700&family=Kosugi+Maru&family=Noto+Sans+JP:wght@400;700&family=Poppins:wght@400;700&family=Shippori+Mincho:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="./styles.css" />
+
+    <!-- ライブラリ（CDN） -->
+    <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="brand">ディスプレイジェネレーター</div>
+      <div class="toolbar">
+        <span class="chip">テーマ</span>
+        <button id="themeBtn" class="btn">切替</button>
+        <span class="chip">アクセント</span>
+        <div class="row" style="gap: 6px">
+          <div
+            class="swatch"
+            data-ac="#8b5cf6"
+            style="background: #8b5cf6"
+          ></div>
+          <div
+            class="swatch"
+            data-ac="#22c55e"
+            style="background: #22c55e"
+          ></div>
+          <div
+            class="swatch"
+            data-ac="#ef4444"
+            style="background: #ef4444"
+          ></div>
+          <div
+            class="swatch"
+            data-ac="#0ea5e9"
+            style="background: #0ea5e9"
+          ></div>
+          <div
+            class="swatch"
+            data-ac="#f59e0b"
+            style="background: #f59e0b"
+          ></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- 左：コントロール -->
+      <section class="panel">
+        <div class="body">
+          <details open>
+            <summary>キャンバス</summary>
+            <div class="content">
+              <div class="grid2">
+                <div>
+                  <label>幅(px)</label
+                  ><input id="cvW" type="number" value="1600" />
+                </div>
+                <div>
+                  <label>高さ(px)</label
+                  ><input id="cvH" type="number" value="1200" />
+                </div>
+              </div>
+              <div class="row">
+                <label
+                  >背景
+                  <select id="bgFit">
+                    <option value="fit">フィット</option>
+                    <option value="cover">カバー</option>
+                  </select></label
+                >
+              </div>
+              <div class="row">
+                <input id="bgFile" type="file" accept="image/*" />
+                <button id="applyCanvas" class="btn primary">サイズ反映</button>
+                <button id="clearBg" class="btn">背景クリア</button>
+              </div>
+            </div>
+          </details>
+
+          <details open>
+            <summary>画像（立ち絵等）</summary>
+            <div class="content">
+              <div class="row">
+                <input id="imgFile" type="file" accept="image/*" />
+                <button id="addImg" class="btn">追加</button>
+              </div>
+              <!-- 不透明度コントロール -->
+              <div class="row">
+                <label>不透明度（選択中の画像）</label>
+                <input
+                  id="imgOpacity"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value="1"
+                  style="flex: 1"
+                />
+                <span id="imgOpacityVal" class="hint">1.00</span>
+              </div>
+
+              <!-- 削除ボタン -->
+              <div class="row">
+                <button
+                  id="btnDelImage"
+                  class="btn"
+                  style="color: #f87171; border-color: #f87171"
+                >
+                  選択中の画像を削除
+                </button>
+              </div>
+              <div class="hint">
+                キャンバス上でドラッグ／角つまみで拡縮・回転できます。
+              </div>
+            </div>
+          </details>
+
+          <details open>
+            <summary>レイヤー管理</summary>
+            <div class="content">
+              <ul id="layerList" class="layer-panel"></ul>
+              <div class="hint">
+                ドラッグで順番入れ替え／👁で表示切替／🗑で削除／クリックで選択
+              </div>
+            </div>
+          </details>
+
+          <details>
+            <summary>テキスト</summary>
+            <div class="content">
+              <div class="row">
+                <input
+                  id="txtContent"
+                  type="text"
+                  placeholder="文章…（改行は \\n ）"
+                />
+              </div>
+              <div class="grid2">
+                <div>
+                  <label>サイズ</label
+                  ><input id="txtSize" type="number" value="64" />
+                </div>
+                <div>
+                  <label>行間</label
+                  ><input id="txtLineH" type="number" step="0.1" value="1.2" />
+                </div>
+              </div>
+              <div class="grid2">
+                <div>
+                  <label>色</label
+                  ><input id="txtColor" type="color" value="#111111" />
+                </div>
+                <div>
+                  <label>縁色</label
+                  ><input id="txtStrokeColor" type="color" value="#ffffff" />
+                </div>
+              </div>
+              <div class="grid2">
+                <div>
+                  <label>縁の太さ</label
+                  ><input id="txtStrokeW" type="number" value="2" />
+                </div>
+                <div>
+                  <label>太字</label
+                  ><select id="txtWeight">
+                    <option value="normal">normal</option>
+                    <option value="bold">bold</option>
+                  </select>
+                </div>
+              </div>
+              <div class="row">
+                <label>フォント</label>
+                <select id="txtFont">
+                  <option value="Inter">Inter（欧文/汎用）</option>
+                  <option value="Poppins">Poppins（欧文）</option>
+                  <option value="Noto Sans JP">
+                    Noto Sans JP（日本語サンセリフ）
+                  </option>
+                  <option value="M PLUS 1p">
+                    M PLUS 1p（日本語サンセリフ）
+                  </option>
+                  <option value="Kosugi Maru">Kosugi Maru（丸ゴ）</option>
+                  <option value="Shippori Mincho">
+                    Shippori Mincho（明朝）
+                  </option>
+                </select>
+              </div>
+              <div class="row">
+                <button id="addText" class="btn primary">テキスト追加</button>
+                <button id="updateText" class="btn">
+                  選択中テキストに反映
+                </button>
+              </div>
+            </div>
+          </details>
+
+          <details>
+            <summary>レーダーチャート</summary>
+            <div class="content">
+              <div class="row">
+                <label>ラベル（改行区切り）</label>
+                <textarea id="radarLabels">
+STR
+DEX
+INT
+POW
+CON
+APP</textarea
+                >
+              </div>
+              <div class="grid2">
+                <input id="radarSetName" type="text" value="現在値" />
+                <input id="radarValues" type="text" value="50,60,70,55,65,75" />
+              </div>
+              <div class="grid3">
+                <div>
+                  <label>最小</label
+                  ><input id="radarMin" type="number" value="0" />
+                </div>
+                <div>
+                  <label>最大</label
+                  ><input id="radarMax" type="number" value="100" />
+                </div>
+                <div>
+                  <label>点表示</label
+                  ><select id="radarDots">
+                    <option value="1" selected>あり</option>
+                    <option value="0">なし</option>
+                  </select>
+                </div>
+              </div>
+              <div class="grid3">
+                <div>
+                  <label>線色</label
+                  ><input id="radarLine" type="color" value="#ff7f50" />
+                </div>
+                <div>
+                  <label>塗り色</label
+                  ><input id="radarFill" type="color" value="#ff7f50" />
+                </div>
+                <div>
+                  <label>塗り不透明度</label
+                  ><input
+                    id="radarAlpha"
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="1"
+                    value="0.25"
+                  />
+                </div>
+              </div>
+              <!-- 🧮 データセット管理パネル -->
+              <details open id="radarDatasetsPanel" style="display: none">
+                <summary>データセット管理</summary>
+                <div class="content">
+                  <ul id="datasetList" class="layer-panel"></ul>
+                  <button
+                    id="btnDelDataset"
+                    class="btn"
+                    style="color: #f87171; border-color: #f87171"
+                  >
+                    選択中データセットを削除
+                  </button>
+                </div>
+              </details>
+
+              <div class="row">
+                <button id="addRadar" class="btn primary">レーダー追加</button>
+                <button id="addRadar2" class="btn">データセット追加</button>
+                <button id="updateRadar" class="btn">選択中を更新</button>
+              </div>
+              <div class="hint">
+                ※ レーダーは画像として追加されます（選択→移動/拡縮/回転可）。
+              </div>
+            </div>
+          </details>
+
+          <!-- 模様・パターン -->
+          <details open>
+            <summary>模様・パターン</summary>
+            <div class="content">
+              <div class="grid2">
+                <div>
+                  <label>プリセット</label>
+                  <select id="patKind">
+                    <option value="dots">ドット</option>
+                    <option value="triangles">三角</option>
+                    <option value="plus">＋（プラス）</option>
+                    <option value="zigzag">ジグザグ</option>
+                    <option value="rings">リング</option>
+                  </select>
+                </div>
+                <div>
+                  <label>ランダムシード</label>
+                  <input id="patSeed" type="number" value="1" />
+                </div>
+              </div>
+
+              <div class="grid3">
+                <div>
+                  <label>色1</label
+                  ><input id="patC1" type="color" value="#0ea5e9" />
+                </div>
+                <div>
+                  <label>色2</label
+                  ><input id="patC2" type="color" value="#ef2c90" />
+                </div>
+                <div>
+                  <label>背景色</label
+                  ><input id="patBg" type="color" value="#ffffff" />
+                </div>
+              </div>
+
+              <div class="grid3">
+                <div>
+                  <label>透過背景</label>
+                  <select id="patBgTransparent">
+                    <option value="1" selected>ON</option>
+                    <option value="0">OFF</option>
+                  </select>
+                </div>
+                <div>
+                  <label>不透明度</label>
+                  <input
+                    id="patOpacity"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="1"
+                  />
+                </div>
+                <div>
+                  <label>回転(°)</label>
+                  <input id="patRot" type="number" value="0" />
+                </div>
+              </div>
+
+              <div class="grid3">
+                <div>
+                  <label>要素サイズ</label>
+                  <input id="patSize" type="number" value="56" />
+                </div>
+                <div>
+                  <label>密度（/1000px）</label>
+                  <input id="patDensity" type="number" value="18" />
+                </div>
+                <div>
+                  <label>キャンバス(px)</label>
+                  <input id="patCanvas" type="number" value="1200" />
+                </div>
+              </div>
+
+              <div class="row">
+                <button id="patRandom" class="btn">ランダム</button>
+                <button id="patAdd" class="btn primary">パターン追加</button>
+                <button id="patUpdate" class="btn">選択中を更新</button>
+              </div>
+              <div class="hint">
+                ※ 追加後は他の要素と同じくドラッグ/拡縮/回転できます。
+              </div>
+            </div>
+          </details>
+
+          <details open>
+            <summary>画像フィルター（選択中に適用）</summary>
+            <div class="content">
+              <div class="row"><strong>ドロップシャドウ</strong></div>
+              <div class="grid3">
+                <div>
+                  <label>色</label
+                  ><input id="fxShadowColor" type="color" value="#000000" />
+                </div>
+                <div>
+                  <label>不透明度</label
+                  ><input
+                    id="fxShadowOpacity"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="0.35"
+                  />
+                </div>
+                <div>
+                  <label>ぼかし</label
+                  ><input
+                    id="fxShadowBlur"
+                    type="number"
+                    min="0"
+                    max="60"
+                    value="20"
+                  />
+                </div>
+              </div>
+              <div class="grid3">
+                <div>
+                  <label>オフセットX</label
+                  ><input id="fxShadowOffX" type="number" value="8" />
+                </div>
+                <div>
+                  <label>オフセットY</label
+                  ><input id="fxShadowOffY" type="number" value="12" />
+                </div>
+                <div>
+                  <label>適用</label
+                  ><select id="fxShadowEnable">
+                    <option value="1">ON</option>
+                    <option value="0" selected>OFF</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row" style="margin-top: 6px">
+                <strong>ぼかし（Blur）</strong>
+              </div>
+              <div class="grid3">
+                <div>
+                  <label>半径</label
+                  ><input
+                    id="fxBlurRadius"
+                    type="number"
+                    min="0"
+                    max="40"
+                    value="0"
+                  />
+                </div>
+                <div>
+                  <label>適用</label
+                  ><select id="fxBlurEnable">
+                    <option value="1">ON</option>
+                    <option value="0" selected>OFF</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row" style="margin-top: 6px">
+                <strong>色相・彩度・輝度（HSL）</strong>
+              </div>
+              <div class="grid3">
+                <div>
+                  <label>色相（-180～180）</label
+                  ><input
+                    id="fxHue"
+                    type="number"
+                    min="-180"
+                    max="180"
+                    value="0"
+                  />
+                </div>
+                <div>
+                  <label>彩度（-1～1）</label
+                  ><input
+                    id="fxSat"
+                    type="number"
+                    step="0.05"
+                    min="-1"
+                    max="1"
+                    value="0"
+                  />
+                </div>
+                <div>
+                  <label>輝度（-1～1）</label
+                  ><input
+                    id="fxLum"
+                    type="number"
+                    step="0.05"
+                    min="-1"
+                    max="1"
+                    value="0"
+                  />
+                </div>
+              </div>
+              <div class="grid2">
+                <div>
+                  <label>適用</label
+                  ><select id="fxHSLEnable">
+                    <option value="1">ON</option>
+                    <option value="0" selected>OFF</option>
+                  </select>
+                </div>
+                <button id="fxApply" class="btn primary">選択中に適用</button>
+              </div>
+              <div class="row">
+                <button id="fxReset" class="btn">フィルターをリセット</button>
+              </div>
+              <div class="hint">
+                ※ テキストは影のみ反映（HSL/Blurは画像専用）。
+              </div>
+            </div>
+          </details>
+
+          <details open>
+            <summary>PNG書き出し</summary>
+            <div class="content">
+              <div class="grid3">
+                <div>
+                  <label>余白(px)</label
+                  ><input id="outMargin" type="number" value="24" />
+                </div>
+                <div>
+                  <label>透過背景</label
+                  ><select id="outTransparent">
+                    <option value="1" selected>ON</option>
+                    <option value="0">OFF</option>
+                  </select>
+                </div>
+                <div>
+                  <label>背景色</label
+                  ><input id="outBgColor" type="color" value="#ffffff" />
+                </div>
+              </div>
+              <div class="row">
+                <button id="export" class="btn primary">PNG保存</button>
+              </div>
+              <input
+                id="outName"
+                type="text"
+                placeholder="ファイル名プレフィックス"
+                value="display"
+              />
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- 右：キャンバス -->
+      <section class="panel stagewrap">
+        <div id="stageMount"><div id="stage"></div></div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

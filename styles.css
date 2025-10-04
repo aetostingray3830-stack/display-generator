@@ -1,0 +1,334 @@
+:root {
+  --bg: #0b0d12;
+  --card: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #e6e8ef;
+  --muted: #a5adcb;
+  --ring: #7dd3fc;
+  --accent: #8b5cf6;
+  --radius: 16px;
+  --blur: 14px;
+}
+[data-theme="light"] {
+  --bg: #f6f7fb;
+  --card: rgba(255, 255, 255, 0.9);
+  --line: #e5e7eb;
+  --text: #0f172a;
+  --muted: #6b7280;
+  --ring: #38bdf8;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Hiragino Kaku Gothic ProN",
+    Meiryo, sans-serif;
+  background: radial-gradient(
+      1200px 1200px at 10% -20%,
+      rgba(139, 92, 246, 0.25),
+      transparent 60%
+    ),
+    radial-gradient(
+      1000px 1000px at 100% 0%,
+      rgba(56, 189, 248, 0.18),
+      transparent 60%
+    ),
+    var(--bg);
+}
+header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: saturate(160%) blur(8px);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0));
+}
+.brand {
+  font-weight: 700;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.02)
+  );
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.btn:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.btn.primary {
+  background: linear-gradient(
+    180deg,
+    var(--accent),
+    color-mix(in oklab, var(--accent), black 10%)
+  );
+  border-color: transparent;
+  color: white;
+}
+.chip {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+main {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 14px;
+  padding: 14px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(14px);
+}
+.panel .body {
+  padding: 14px;
+}
+
+details {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+summary {
+  padding: 12px 14px;
+  cursor: pointer;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.01)
+  );
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+.content {
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.02)
+  );
+  color: var(--text);
+  font-size: 14px;
+}
+textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+input[type="color"] {
+  height: 38px;
+  padding: 2px;
+}
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stagewrap {
+  padding: 10px;
+}
+#stageMount {
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+#stage {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+  background: #fff;
+}
+
+.layer-panel {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.layer-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.02)
+  );
+  border-radius: 10px;
+  user-select: none;
+}
+.layer-item.is-active {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.layer-item.is-hidden {
+  opacity: 0.6;
+}
+.layer-item.dragover {
+  border-color: var(--ring);
+}
+.layer-item .handle {
+  cursor: grab;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  opacity: 0.8;
+}
+.layer-item .eye,
+.layer-item .del {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.layer-item .eye {
+  margin-left: 0;
+}
+.layer-item .del {
+  color: #f87171;
+  border-color: #f87171;
+}
+.layer-item .label {
+  flex: 1;
+  font-weight: 600;
+}
+.layer-item .meta {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+select,
+option {
+  color: var(--text, #222); /* 通常文字色を暗めにする */
+  background-color: var(--bg, #fff);
+}
+
+[data-theme="dark"] select,
+[data-theme="dark"] option {
+  color: #f0f0f0; /* ダークテーマでもやや明るく */
+  background-color: #1e1e1e;
+}
+
+#datasetList .layer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 14px;
+}
+#datasetList .layer-item.is-active {
+  outline: 2px solid var(--ring);
+}
+#datasetList .layer-item.is-hidden {
+  opacity: 0.5;
+}
+#datasetList .eye,
+#datasetList .del {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 6px;
+  background: transparent;
+  cursor: pointer;
+}
+#datasetList .del {
+  color: #f87171;
+  border-color: #f87171;
+}
+
+/* スライダーの幅を揃える（任意） */
+input[type="range"] {
+  width: 100%;
+}
