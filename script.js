@@ -36,6 +36,7 @@ let counters = { text: 0, image: 0, radar: 0 };
 function nodeType(n) {
   if (n instanceof Konva.Text) return "text";
   if (n instanceof Konva.Image && n._radarConfig) return "radar";
+  if (n instanceof Konva.Image && n._patternConfig) return "pattern";
   if (n instanceof Konva.Image) return "image";
   return "node";
 }
@@ -50,6 +51,8 @@ function ensureNodeName(n) {
         ? "Image"
         : t === "radar"
         ? "Radar"
+        : t === "pattern"
+        ? "Pattern"
         : "Node";
     n._prettyName = `${base}_${counters[t]}`;
   }
@@ -192,6 +195,8 @@ stage.on("click tap", (e) => {
 /* ===== 背景 ===== */
 let bgImageNode = null;
 function resizeStage() {
+  const cvW = document.getElementById("cvW");
+  const cvH = document.getElementById("cvH");
   stageW = +cvW.value || 1600;
   stageH = +cvH.value || 1200;
   stage.size({ width: stageW, height: stageH });
@@ -217,15 +222,15 @@ function setBackgroundImage(url) {
 }
 function fitBackground() {
   if (!bgImageNode || !bgImageNode.image()) return;
-  const mode = bgFit.value,
-    iw = bgImageNode.image().width,
+  const bgFit = document.getElementById("bgFit").value;
+  const iw = bgImageNode.image().width,
     ih = bgImageNode.image().height;
   const sw = stage.width(),
     sh = stage.height(),
     ir = iw / ih,
     sr = sw / sh;
   const scale =
-    mode === "cover"
+    bgFit === "cover"
       ? ir > sr
         ? sh / ih
         : sw / iw
@@ -238,8 +243,8 @@ function fitBackground() {
     y = (sh - h) / 2;
   bgImageNode.setAttrs({ x, y, width: w, height: h });
 }
-applyCanvas.onclick = resizeStage;
-bgFile.onchange = (e) => {
+document.getElementById("applyCanvas").onclick = resizeStage;
+document.getElementById("bgFile").onchange = (e) => {
   const f = e.target.files?.[0];
   if (f) {
     const r = new FileReader();
@@ -247,7 +252,7 @@ bgFile.onchange = (e) => {
     r.readAsDataURL(f);
   }
 };
-clearBg.onclick = () => {
+document.getElementById("clearBg").onclick = () => {
   if (bgImageNode) {
     bgImageNode.destroy();
     bgImageNode = null;
@@ -263,6 +268,7 @@ function addImageFromFile(file) {
 }
 function addImageFromURL(url) {
   const img = new Image();
+  img.crossOrigin = "anonymous";
   img.onload = () => {
     const node = new Konva.Image({
       image: img,
@@ -280,19 +286,19 @@ function addImageFromURL(url) {
   };
   img.src = url;
 }
-addImg.onclick = () => {
-  const f = imgFile.files?.[0];
+document.getElementById("addImg").onclick = () => {
+  const f = document.getElementById("imgFile").files?.[0];
   if (f) addImageFromFile(f);
 };
-imgOpacity.addEventListener("input", (e) => {
+document.getElementById("imgOpacity").addEventListener("input", (e) => {
   const v = parseFloat(e.target.value);
-  imgOpacityVal.textContent = v.toFixed(2);
+  document.getElementById("imgOpacityVal").textContent = v.toFixed(2);
   if (selectedNode && selectedNode instanceof Konva.Image) {
     selectedNode.opacity(v);
     mainLayer.batchDraw();
   }
 });
-btnDelImage.onclick = () => {
+document.getElementById("btnDelImage").onclick = () => {
   if (selectedNode && selectedNode instanceof Konva.Image) {
     selectedNode.destroy();
     selectNode(null);
@@ -323,6 +329,10 @@ function addTextNode(o) {
     lineHeight: +o.lineH || 1.2,
     fontStyle: o.weight || "normal",
     fontFamily: o.font || "Inter",
+    shadowColor: "#000",
+    shadowOpacity: 0,
+    shadowBlur: 0,
+    shadowOffset: { x: 0, y: 0 },
   });
   t.on("transformend dragend", () => mainLayer.batchDraw());
   ensureNodeName(t);
@@ -331,29 +341,29 @@ function addTextNode(o) {
   mainLayer.draw();
   updateLayerList();
 }
-addText.onclick = () =>
+document.getElementById("addText").onclick = () =>
   addTextNode({
-    text: txtContent.value,
-    size: txtSize.value,
-    fill: txtColor.value,
-    stroke: txtStrokeColor.value,
-    strokeW: txtStrokeW.value,
-    lineH: txtLineH.value,
-    weight: txtWeight.value,
-    font: txtFont.value,
+    text: document.getElementById("txtContent").value,
+    size: document.getElementById("txtSize").value,
+    fill: document.getElementById("txtColor").value,
+    stroke: document.getElementById("txtStrokeColor").value,
+    strokeW: document.getElementById("txtStrokeW").value,
+    lineH: document.getElementById("txtLineH").value,
+    weight: document.getElementById("txtWeight").value,
+    font: document.getElementById("txtFont").value,
   });
-updateText.onclick = () => {
+document.getElementById("updateText").onclick = () => {
   if (!selectedNode || !(selectedNode instanceof Konva.Text))
     return alert("テキストを選択してください");
   selectedNode.setAttrs({
-    text: txtContent.value.replace(/\\n/g, "\n"),
-    fontSize: +txtSize.value || 64,
-    lineHeight: +txtLineH.value || 1.2,
-    fill: txtColor.value,
-    stroke: txtStrokeColor.value,
-    strokeWidth: +txtStrokeW.value || 2,
-    fontStyle: txtWeight.value,
-    fontFamily: txtFont.value,
+    text: document.getElementById("txtContent").value.replace(/\\n/g, "\n"),
+    fontSize: +document.getElementById("txtSize").value || 64,
+    lineHeight: +document.getElementById("txtLineH").value || 1.2,
+    fill: document.getElementById("txtColor").value,
+    stroke: document.getElementById("txtStrokeColor").value,
+    strokeWidth: +document.getElementById("txtStrokeW").value || 2,
+    fontStyle: document.getElementById("txtWeight").value,
+    fontFamily: document.getElementById("txtFont").value,
   });
   mainLayer.draw();
   updateLayerList();
@@ -392,109 +402,33 @@ function buildDataset(name, values, lineHex, fillHex, alpha, dots) {
   };
 }
 function makeRadarCanvas(cfg) {
-  // ---- バリデーション & 正規化 ----
-  const labels = Array.isArray(cfg?.labels)
-    ? cfg.labels.map((s) => String(s ?? "").trim())
-    : [];
-  const safeLabels = labels.filter(Boolean);
-  // ラベルが3未満ならダミーを補う（Chartがクラッシュしないように）
-  while (safeLabels.length < 3) safeLabels.push(`L${safeLabels.length + 1}`);
-
-  const rawDatasets = Array.isArray(cfg?.datasets) ? cfg.datasets : [];
-  // _visible !== false のみ使い、ラベル数に合わせて data を丸める
-  const dsForChart = rawDatasets
-    .filter((ds) => ds && ds._visible !== false)
-    .map((ds) => {
-      const data = Array.isArray(ds.data)
-        ? ds.data.slice(0, safeLabels.length)
-        : [];
-      while (data.length < safeLabels.length) data.push(0);
-      return {
-        label: ds.label ?? "Dataset",
-        data,
-        borderColor: ds.borderColor ?? "rgba(255,99,132,1)",
-        backgroundColor: ds.backgroundColor ?? "rgba(255,99,132,0.25)",
-        borderWidth: Number.isFinite(ds.borderWidth) ? ds.borderWidth : 4,
-        pointRadius: Number.isFinite(ds.pointRadius) ? ds.pointRadius : 3,
-        pointHoverRadius: Number.isFinite(ds.pointHoverRadius)
-          ? ds.pointHoverRadius
-          : 6,
-        fill: ds.fill !== false,
-        spanGaps: !!ds.spanGaps,
-      };
-    });
-
-  // 1本も無ければダミーを1本
-  if (dsForChart.length === 0) {
-    dsForChart.push({
-      label: "Dataset",
-      data: Array(safeLabels.length).fill(0),
-      borderColor: "rgba(99,102,241,1)",
-      backgroundColor: "rgba(99,102,241,0.25)",
-      borderWidth: 4,
-      pointRadius: 3,
-      pointHoverRadius: 6,
-      fill: true,
-      spanGaps: true,
-    });
-  }
-
-  const min = Number.isFinite(cfg?.min) ? cfg.min : 0;
-  const max = Number.isFinite(cfg?.max) ? cfg.max : 100;
-
-  // ---- キャンバス作成 ----
   const c = document.createElement("canvas");
   c.width = 800;
   c.height = 800;
-
-  // ---- Chart 生成（try/catchで保護）----
-  let chart = null;
-  try {
-    // Chartが読み込まれていない場合のチェック
-    if (typeof Chart === "undefined") {
-      throw new Error(
-        'Chart.js が読み込まれていません。<script src="...chart.umd.min.js"></script> を確認してください。'
-      );
-    }
-
-    chart = new Chart(c.getContext("2d"), {
-      type: "radar",
-      data: { labels: safeLabels, datasets: dsForChart },
-      options: {
-        responsive: false,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: true },
-          // ↓ デバッグしやすいようにアニメ短縮（任意）
-          tooltip: { enabled: true },
-        },
-        scales: {
-          r: {
-            min,
-            max,
-            ticks: { stepSize: Math.ceil(Math.max(1, (max - min) / 5)) },
-            angleLines: { color: "rgba(0,0,0,.15)" },
-            grid: { color: "rgba(0,0,0,.15)" },
-            pointLabels: { font: { size: 16 } },
+  const chart = new Chart(c.getContext("2d"), {
+    type: "radar",
+    data: {
+      labels: cfg.labels,
+      datasets: cfg.datasets.filter((d) => d._visible !== false),
+    },
+    options: {
+      responsive: false,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: true } },
+      scales: {
+        r: {
+          min: cfg.min,
+          max: cfg.max,
+          ticks: {
+            stepSize: Math.ceil(Math.max(1, (cfg.max - cfg.min) / 5)),
           },
+          grid: { color: "rgba(0,0,0,.15)" },
+          angleLines: { color: "rgba(0,0,0,.15)" },
+          pointLabels: { font: { size: 18 } },
         },
       },
-    });
-  } catch (err) {
-    console.error("[makeRadarCanvas] Chart生成に失敗:", err);
-
-    // フォールバック：エラーメッセージを書いた簡易キャンバスを返す
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, c.width, c.height);
-    ctx.fillStyle = "#e11d48";
-    ctx.font = "20px sans-serif";
-    ctx.fillText("Radar chart error", 24, 40);
-    ctx.fillStyle = "#111";
-    ctx.font = "14px monospace";
-    ctx.fillText(String(err.message || err), 24, 70);
-  }
-
+    },
+  });
   return { canvas: c, chart };
 }
 
@@ -504,20 +438,20 @@ function normalizeValuesToLabels(values, labels) {
   return res;
 }
 function addRadarNode() {
-  const labels = parseLabels(radarLabels.value);
+  const labels = parseLabels(document.getElementById("radarLabels").value);
   if (labels.length < 3) return alert("ラベルは3つ以上にしてください");
-  let values = parseValues(radarValues.value);
+  let values = parseValues(document.getElementById("radarValues").value);
   values = normalizeValuesToLabels(values, labels);
   const ds = buildDataset(
-    radarSetName.value,
+    document.getElementById("radarSetName").value,
     values,
-    radarLine.value,
-    radarFill.value,
-    radarAlpha.value,
-    radarDots.value
+    document.getElementById("radarLine").value,
+    document.getElementById("radarFill").value,
+    document.getElementById("radarAlpha").value,
+    document.getElementById("radarDots").value
   );
-  const min = +radarMin.value || 0,
-    max = +radarMax.value || 100;
+  const min = +document.getElementById("radarMin").value || 0;
+  const max = +document.getElementById("radarMax").value || 100;
   const { canvas, chart } = makeRadarCanvas({
     labels,
     min,
@@ -544,16 +478,16 @@ function addDatasetToSelectedRadar() {
   if (!selectedNode || !selectedNode._radarConfig)
     return alert("レーダーを選択してください");
   const cfg = selectedNode._radarConfig;
-  let values = parseValues(radarValues.value);
+  let values = parseValues(document.getElementById("radarValues").value);
   values = normalizeValuesToLabels(values, cfg.labels);
   cfg.datasets.push(
     buildDataset(
-      radarSetName.value,
+      document.getElementById("radarSetName").value,
       values,
-      radarLine.value,
-      radarFill.value,
-      radarAlpha.value,
-      radarDots.value
+      document.getElementById("radarLine").value,
+      document.getElementById("radarFill").value,
+      document.getElementById("radarAlpha").value,
+      document.getElementById("radarDots").value
     )
   );
   updateSelectedRadar();
@@ -562,9 +496,9 @@ function addDatasetToSelectedRadar() {
 function updateSelectedRadar() {
   if (!selectedNode || !selectedNode._radarConfig) return;
   const cfg = selectedNode._radarConfig;
-  cfg.labels = parseLabels(radarLabels.value);
-  cfg.min = +radarMin.value || 0;
-  cfg.max = +radarMax.value || 100;
+  cfg.labels = parseLabels(document.getElementById("radarLabels").value);
+  cfg.min = +document.getElementById("radarMin").value || 0;
+  cfg.max = +document.getElementById("radarMax").value || 100;
   cfg.datasets = cfg.datasets.map((ds) => ({
     ...ds,
     data: normalizeValuesToLabels(ds.data, cfg.labels),
@@ -576,9 +510,9 @@ function updateSelectedRadar() {
   mainLayer.draw();
   updateLayerList();
 }
-addRadar.onclick = addRadarNode;
-addRadar2.onclick = addDatasetToSelectedRadar;
-updateRadar.onclick = () => {
+document.getElementById("addRadar").onclick = addRadarNode;
+document.getElementById("addRadar2").onclick = addDatasetToSelectedRadar;
+document.getElementById("updateRadar").onclick = () => {
   updateSelectedRadar();
   updateDatasetList();
 };
@@ -631,21 +565,23 @@ function updateDatasetList() {
     datasetListEl.appendChild(li);
   });
 }
-btnDelDataset.onclick = () => {
-  if (
-    selectedNode &&
-    selectedNode._radarConfig &&
-    selectedDatasetIndex != null
-  ) {
-    selectedNode._radarConfig.datasets.splice(selectedDatasetIndex, 1);
-    selectedDatasetIndex = null;
-    updateSelectedRadar();
-    updateDatasetList();
-  }
-};
+const btnDelDataset = document.getElementById("btnDelDataset");
+if (btnDelDataset) {
+  btnDelDataset.onclick = () => {
+    if (
+      selectedNode &&
+      selectedNode._radarConfig &&
+      selectedDatasetIndex != null
+    ) {
+      selectedNode._radarConfig.datasets.splice(selectedDatasetIndex, 1);
+      selectedDatasetIndex = null;
+      updateSelectedRadar();
+      updateDatasetList();
+    }
+  };
+}
 
 /* ===== 画像フィルター（影の見切れ対策付き） ===== */
-// 影の見切れを防ぐパディング
 function calcShadowPadding() {
   const blur = +document.getElementById("fxShadowBlur")?.value || 0;
   const ox = Math.abs(+document.getElementById("fxShadowOffX")?.value || 0);
@@ -709,38 +645,31 @@ function applyFilters(node) {
   }
   mainLayer.batchDraw();
 }
-fxApply.addEventListener("click", () => {
-  if (!selectedNode) {
-    alert("対象を選択してください");
-    return;
-  }
-  applyFilters(selectedNode);
-});
-fxReset.addEventListener("click", () => {
-  if (!selectedNode) {
-    alert("対象を選択してください");
-    return;
-  }
-  selectedNode.shadowOpacity(0);
-  selectedNode.shadowBlur(0);
-  selectedNode.shadowOffset({ x: 0, y: 0 });
-  selectedNode.clearCache();
-  selectedNode.filters([]);
-  mainLayer.batchDraw();
-});
-
-/* ===== 共通削除ボタン ===== */
-btnDeleteNode.onclick = () => {
-  if (!selectedNode) return alert("削除する要素を選択してください");
-  selectedNode.destroy();
-  selectNode(null);
-  mainLayer.draw();
-  updateLayerList();
-  updateDatasetList();
-};
+const fxApply = document.getElementById("fxApply");
+if (fxApply)
+  fxApply.addEventListener("click", () => {
+    if (!selectedNode) {
+      alert("対象を選択してください");
+      return;
+    }
+    applyFilters(selectedNode);
+  });
+const fxReset = document.getElementById("fxReset");
+if (fxReset)
+  fxReset.addEventListener("click", () => {
+    if (!selectedNode) {
+      alert("対象を選択してください");
+      return;
+    }
+    selectedNode.shadowOpacity(0);
+    selectedNode.shadowBlur(0);
+    selectedNode.shadowOffset({ x: 0, y: 0 });
+    selectedNode.clearCache();
+    selectedNode.filters([]);
+    mainLayer.batchDraw();
+  });
 
 /* ===== パターン（幾何学模様） ===== */
-// RNG
 function makeRNG(seed = 1) {
   let t = seed >>> 0;
   return function () {
@@ -815,7 +744,6 @@ function drawZigZag(ctx, x, y, w, h, color, lw = 3) {
   ctx.stroke();
   ctx.restore();
 }
-
 function makePatternCanvas(cfg) {
   const size = Math.max(200, +cfg.canvas || 1000);
   const c = document.createElement("canvas");
@@ -877,17 +805,17 @@ function makePatternCanvas(cfg) {
 }
 function readPatternConfigFromUI() {
   return {
-    kind: patKind.value,
-    seed: +patSeed.value || 1,
-    c1: patC1.value,
-    c2: patC2.value,
-    bgColor: patBg.value,
-    bgTransparent: patBgTransparent.value === "1",
-    opacity: +patOpacity.value || 1,
-    rotate: +patRot.value || 0,
-    shapeSize: +patSize.value || 56,
-    density: +patDensity.value || 18,
-    canvas: +patCanvas.value || 1200,
+    kind: document.getElementById("patKind").value,
+    seed: +document.getElementById("patSeed").value || 1,
+    c1: document.getElementById("patC1").value,
+    c2: document.getElementById("patC2").value,
+    bgColor: document.getElementById("patBg").value,
+    bgTransparent: document.getElementById("patBgTransparent").value === "1",
+    opacity: +document.getElementById("patOpacity").value || 1,
+    rotate: +document.getElementById("patRot").value || 0,
+    shapeSize: +document.getElementById("patSize").value || 56,
+    density: +document.getElementById("patDensity").value || 18,
+    canvas: +document.getElementById("patCanvas").value || 1200,
   };
 }
 function addPatternNode() {
@@ -925,15 +853,62 @@ function updateSelectedPattern() {
   mainLayer.draw();
   updateLayerList();
 }
-patAdd.addEventListener("click", addPatternNode);
-patUpdate.addEventListener("click", updateSelectedPattern);
-patRandom.addEventListener("click", () => {
-  patSeed.value = Math.floor(Math.random() * 100000) + 1;
-});
+const patAdd = document.getElementById("patAdd");
+if (patAdd) patAdd.addEventListener("click", addPatternNode);
+const patUpdate = document.getElementById("patUpdate");
+if (patUpdate) patUpdate.addEventListener("click", updateSelectedPattern);
+const patRandom = document.getElementById("patRandom");
+if (patRandom)
+  patRandom.addEventListener("click", () => {
+    document.getElementById("patSeed").value =
+      Math.floor(Math.random() * 100000) + 1;
+  });
 
-/* ===== Export ===== */
+/* ======== エクスポート補助：実描画範囲を取得（トリミング対策） ======== */
+function getContentRect(bleed = 16) {
+  let rect = null;
+  stage.getChildren().forEach((layer) => {
+    const r = layer.getClientRect({ skipShadow: false, skipStroke: false });
+    if (
+      !r ||
+      !isFinite(r.x) ||
+      !isFinite(r.y) ||
+      !isFinite(r.width) ||
+      !isFinite(r.height)
+    )
+      return;
+    if (!rect) rect = { ...r };
+    else {
+      const minX = Math.min(rect.x, r.x);
+      const minY = Math.min(rect.y, r.y);
+      const maxX = Math.max(rect.x + rect.width, r.x + r.width);
+      const maxY = Math.max(rect.y + rect.height, r.y + r.height);
+      rect = {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - maxY + (maxY - minY),
+      }; // Fix later? (typo)
+    }
+  });
+  // 修正：上の width/height 計算タイポ防止
+  if (rect) {
+    const minX = rect.x,
+      minY = rect.y,
+      maxX = rect.x + rect.width,
+      maxY = rect.y + rect.height;
+    rect = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  } else {
+    rect = { x: 0, y: 0, width: stage.width(), height: stage.height() };
+  }
+  rect.x -= bleed;
+  rect.y -= bleed;
+  rect.width += bleed * 2;
+  rect.height += bleed * 2;
+  return rect;
+}
 
-// 日付入りファイル名を生成: <prefix>_YYYY-MM-DD_HHMMSS.png
+/* ===== 日付入りファイル名 ===== */
 function makeDatedFilename(prefix = "sheet") {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -946,101 +921,136 @@ function makeDatedFilename(prefix = "sheet") {
   return `${prefix}_${y}-${m}-${day}_${hh}${mm}${ss}.png`;
 }
 
+/* ===== エクスポート（トリミング対策＋Blob/新タブフォールバック） ===== */
 function exportPNG() {
+  console.log("exportPNG called");
+
   try {
-    const margin = Math.max(
-      0,
-      parseInt(document.getElementById("outMargin").value || "0", 10)
-    );
-    const transparent = document.getElementById("outTransparent").value === "1";
-    const bgColor = document.getElementById("outBgColor").value || "#ffffff";
+    const margin = Number(document.getElementById("outMargin")?.value || 0);
+    const transparent =
+      document.getElementById("outTransparent")?.value === "1";
+    const bgColor = document.getElementById("outBgColor")?.value || "#ffffff";
+    const prefix =
+      (document.getElementById("outName")?.value || "display").trim() ||
+      "display";
+    const filename = makeDatedFilename(prefix);
 
-    // ▼ ここでファイル名を作る（prefix はお好みで）
-    const filename = makeDatedFilename("display"); // 例: display_2025-10-04_132455.png
+    // 影・ストローク込みの実描画範囲（全レイヤー）を取得
+    const rect = getContentRect(16);
+    {
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
 
-    let dataURL;
-    try {
-      dataURL = stage.toDataURL({ pixelRatio: 1, mimeType: "image/png" });
-    } catch (e) {
-      console.error("stage.toDataURL failed:", e);
-      alert("画像を書き出せませんでした（CORSの可能性）。");
-      return;
+      stage.getChildren().forEach((layer) => {
+        const r = layer.getClientRect({ skipShadow: false, skipStroke: false });
+        if (
+          !r ||
+          !isFinite(r.x) ||
+          !isFinite(r.y) ||
+          !isFinite(r.width) ||
+          !isFinite(r.height)
+        )
+          return;
+        if (r.width <= 0 || r.height <= 0) return;
+
+        minX = Math.min(minX, r.x);
+        minY = Math.min(minY, r.y);
+        maxX = Math.max(maxX, r.x + r.width);
+        maxY = Math.max(maxY, r.y + r.height);
+      });
+
+      if (!isFinite(minX)) {
+        // 何も無い場合はステージ全体
+        minX = 0;
+        minY = 0;
+        maxX = stage.width();
+        maxY = stage.height();
+      }
+
+      // 安全マージン（影などのはみ出し対策）
+      minX -= bleed;
+      minY -= bleed;
+      maxX += bleed;
+      maxY += bleed;
+
+      return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
     }
 
-    const out = document.createElement("canvas");
-    out.width = stage.width() + margin * 2;
-    out.height = stage.height() + margin * 2;
-    const ctx = out.getContext("2d");
+    // 余白・背景合成
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = Math.ceil(rect.width) + margin * 2;
+    outCanvas.height = Math.ceil(rect.height) + margin * 2;
+    const ctx = outCanvas.getContext("2d");
 
     if (!transparent) {
       ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.fillRect(0, 0, outCanvas.width, outCanvas.height);
     }
 
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       ctx.drawImage(img, margin, margin);
 
-      if (out.toBlob) {
-        out.toBlob((blob) => {
+      if (outCanvas.toBlob) {
+        outCanvas.toBlob((blob) => {
           if (!blob) {
-            fallbackWithDataURL();
+            console.warn("Blob生成失敗→新タブフォールバック");
+            fallbackDataURL();
             return;
           }
           const url = URL.createObjectURL(blob);
-          triggerDownload(url, filename);
-          setTimeout(() => URL.revokeObjectURL(url), 4000);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          const clickEvent = new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+          });
+          a.dispatchEvent(clickEvent);
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 500);
         }, "image/png");
       } else {
-        fallbackWithDataURL();
+        fallbackDataURL();
       }
     };
     img.onerror = (e) => {
-      console.error("export composite load error:", e);
-      alert("書き出し合成に失敗しました。");
+      console.error("画像の合成に失敗:", e);
+      alert("PNG合成に失敗しました。");
     };
     img.src = dataURL;
 
-    function fallbackWithDataURL() {
+    function fallbackDataURL() {
       try {
-        const url = out.toDataURL("image/png");
-        if (isSafari()) {
-          const win = window.open(url, "_blank");
-          if (!win)
-            alert("ポップアップがブロックされました。許可してください。");
-        } else {
-          triggerDownload(url, filename);
-        }
-      } catch (e) {
-        console.error("fallback toDataURL failed:", e);
-        alert("PNGデータURL生成に失敗しました。");
+        const url = outCanvas.toDataURL("image/png");
+        const win = window.open(url, "_blank");
+        if (!win)
+          alert(
+            "ポップアップがブロックされました。許可してもう一度お試しください。"
+          );
+      } catch (err) {
+        console.error("DataURLフォールバック失敗:", err);
+        alert("PNG保存に失敗しました。");
       }
-    }
-
-    function triggerDownload(href, filename) {
-      const a = document.createElement("a");
-      a.href = href;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    }
-
-    function isSafari() {
-      const ua = navigator.userAgent;
-      return /^((?!chrome|android).)*safari/i.test(ua);
     }
   } catch (err) {
     console.error("exportPNG fatal:", err);
-    alert("PNG保存で予期しないエラーが発生しました。");
+    alert("PNG保存時にエラーが発生しました。");
   }
 }
 
-const prefix =
-  (document.getElementById("outName")?.value || "display").trim() || "display";
-const filename = makeDatedFilename(prefix);
-
+/* ===== イベント結線 ===== */
+document.getElementById("applyCanvas").click; // noop to ensure loaded
 document.getElementById("export").addEventListener("click", exportPNG);
+document.getElementById("addImg"); // keep refs warm (noop)
+document.getElementById("addRadar"); // noop
 
 /* ===== Init ===== */
 resizeStage();
